@@ -5,6 +5,9 @@ Source: Wikipedia and EDGAR
 
 import requests
 import pandas as pd
+import time
+from urllib.error import HTTPError
+from io import StringIO
 
 # pylint: disable=C0116
 # pylint: disable=C0301
@@ -13,8 +16,44 @@ def get_wiki_data(output: str = "constituents"):
 
     sp_df = pd.DataFrame()
     chg_df = pd.DataFrame()
+
+    # Headers to mimic a real browser request
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+
     for sp_index in ["500", "400", "600"]:
-        wiki_sp = pd.read_html(f"https://en.wikipedia.org/wiki/List_of_S%26P_{sp_index}_companies")
+        url = f"https://en.wikipedia.org/wiki/List_of_S%26P_{sp_index}_companies"
+
+        # Retry mechanism for failed requests
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Use requests to get the page with proper headers
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+
+                # Parse the HTML content with pandas
+                wiki_sp = pd.read_html(StringIO(response.text))
+                break
+
+            except (HTTPError, requests.RequestException) as e:
+                print(f"Attempt {attempt + 1} failed for S&P {sp_index}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)  # Wait before retrying
+                else:
+                    print(f"Failed to fetch data for S&P {sp_index} after {max_retries} attempts")
+                    continue
+
+        if 'wiki_sp' not in locals():
+            print(f"Skipping S&P {sp_index} due to fetch failure")
+            continue
+
         cons_df = wiki_sp[0]
         if "CIK" in cons_df.columns:
             cons_df["CIK"] = cons_df["CIK"].astype(str).str.zfill(10)

@@ -102,7 +102,7 @@ The analysis outputs a JSON structure with the following fields:
 ```
 
 ## File Structure
-See [PROJECT STRUCTURE](/sp_float/docs/PROJECT_STRUCTURE.md)
+See [PROJECT STRUCTURE](./docs/PROJECT_STRUCTURE.md)
 
 ## Requirements
 

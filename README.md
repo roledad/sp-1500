@@ -29,11 +29,20 @@ export GEMINI_API_KEY="your_api_key_here"
 The main script provides a command-line interface for complete analysis:
 
 ```bash
-# Using a local proxy document
-python float_share_analyzer.py --sp-document prompting/sp_float.pdf --proxy-document path/to/proxy.pdf --output results.json
+# Main entry point - analyze constituents
+python main.py constituents
+
+# Analyze a specific company
+python main.py analyze AAPL
+
+# Batch analyze multiple companies
+python main.py batch --limit 5
+
+# Using the float share analyzer directly
+python src/float_share_analyzer.py --sp-document doc_assets/sp_float.pdf --proxy-document path/to/proxy.pdf --output results.json
 
 # Using a proxy document URL
-python float_share_analyzer.py --sp-document prompting/sp_float.pdf --proxy-url "https://sec.gov/..." --output results.json
+python src/float_share_analyzer.py --sp-document doc_assets/sp_float.pdf --proxy-url "https://sec.gov/..." --output results.json
 ```
 
 ### Individual Components
@@ -42,7 +51,7 @@ You can also use individual components:
 
 #### 1. Google GenAI Client
 ```python
-from genai_client import GenAIClient
+from src.models.genai_client import GenAIClient
 
 client = GenAIClient()
 document = client.upload_file("document.pdf")
@@ -51,7 +60,7 @@ summary = client.summarize_document(document, "Summarize this document")
 
 #### 2. S&P Methodology Analyzer
 ```python
-from sp_methodology_analyzer import SPMethodologyAnalyzer
+from src.sp_methodology_analyzer import SPMethodologyAnalyzer
 
 analyzer = SPMethodologyAnalyzer()
 methodology = analyzer.analyze_sp_methodology("sp_float.pdf")
@@ -60,7 +69,7 @@ dno_rule = analyzer.get_dno_rule("sp_float.pdf")
 
 #### 3. Proxy Ownership Extractor
 ```python
-from proxy_ownership_extractor import ProxyOwnershipExtractor
+from src.proxy_ownership_extractor import ProxyOwnershipExtractor
 
 extractor = ProxyOwnershipExtractor()
 # Download proxy document
@@ -71,10 +80,21 @@ ownership = extractor.extract_ownership_section(proxy_path)
 
 #### 4. Float Share Calculator
 ```python
-from float_share_calculator import FloatShareCalculator
+from src.float_share_calculator import FloatShareCalculator
 
 calculator = FloatShareCalculator()
 results = calculator.calculate_float_share_json(ownership, methodology, dno_rule)
+```
+
+#### 5. SP1500 Analyzer (Main Component)
+```python
+from src.sp1500_analyzer import SP1500Analyzer
+
+analyzer = SP1500Analyzer()
+# Analyze a specific company
+result = analyzer.analyze_company("AAPL")
+# Batch analyze multiple companies
+results = analyzer.batch_analyze(limit=10)
 ```
 
 ## Output Schema
@@ -102,7 +122,76 @@ The analysis outputs a JSON structure with the following fields:
 ```
 
 ## File Structure
-See [PROJECT STRUCTURE](./docs/PROJECT_STRUCTURE.md)
+
+```
+edgar/
+├── main.py                          # Main entry point
+├── requirements.txt                 # Dependencies
+├── README.md                        # This file
+├── sp1500_constituents.csv          # S&P 1500 companies data
+├── sp1500_dei.csv                   # DEI filing data
+├── filing_analysis.ipynb            # Jupyter notebook for analysis
+│
+├── src/                             # Core source code
+│   ├── __init__.py
+│   ├── sp1500_analyzer.py           # Main analyzer class
+│   ├── float_share_analyzer.py      # Float calculation orchestrator
+│   ├── float_share_calculator.py    # Float calculation logic
+│   ├── proxy_ownership_extractor.py # Proxy document analysis
+│   ├── sp_methodology_analyzer.py   # S&P methodology analysis
+│   ├── cli_interface.py             # Command-line interface
+│   │
+│   ├── data/                        # Data layer
+│   │   ├── __init__.py
+│   │   ├── data_api.py              # EDGAR API integration
+│   │   └── data_constitutents.py    # S&P 1500 data fetching
+│   │
+│   ├── models/                      # AI models and schemas
+│   │   ├── __init__.py
+│   │   ├── genai_client.py          # Gemini AI client
+│   │   └── float_share_schema.py    # Data schemas
+│   │
+│   ├── analysis/                    # Analysis engines (empty - reserved)
+│   │   └── __init__.py
+│   │
+│   └── utils/                       # Utilities and helpers
+│       ├── __init__.py
+│       ├── doc_assets_manager.py    # Document management
+│       ├── load_env.py              # Environment configuration
+│       └── setup_api_key.py         # API key setup
+│
+├── tests/                           # Test suite
+│   ├── __init__.py
+│   ├── test_sp1500_analyzer.py      # Main analyzer tests
+│   ├── test_doc_assets.py           # Document management tests
+│   ├── test_gemini_fix.py           # Gemini API tests
+│   ├── test_methodology_caching.py  # Caching tests
+│   ├── test_connection.py           # Connection tests
+│   └── quick_test.py                # Quick validation
+│
+├── examples/                        # Usage examples
+│   ├── example_usage.py             # Basic usage examples
+│   ├── example_sp1500_usage.py      # SP1500 specific examples
+│   └── analyze_sp_methodology.py    # Methodology analysis example
+│
+├── docs/                            # Documentation
+│   ├── PROJECT_STRUCTURE.md         # Detailed project structure
+│   ├── SP1500_ANALYZER_README.md    # Detailed usage guide
+│   ├── IMPLEMENTATION_SUMMARY.md    # Implementation details
+│   └── TROUBLESHOOTING.md           # Troubleshooting guide
+│
+└── config/                          # Configuration files (empty)
+```
+
+For detailed project structure, see [PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md)
+
+## Data Files
+
+The project includes several key data files:
+
+- `sp1500_constituents.csv`: S&P 1500 companies list with ticker symbols and company information
+- `sp1500_dei.csv`: DEI (Document and Entity Information) filing data for S&P 1500 companies
+- `filing_analysis.ipynb`: Jupyter notebook for interactive analysis and visualization
 
 ## Requirements
 
@@ -112,7 +201,9 @@ See [PROJECT STRUCTURE](./docs/PROJECT_STRUCTURE.md)
 
 ## Notes
 
-- The S&P methodology document (`sp_float.pdf`) is summarized in text file for recycled use
-- Proxy documents can be provided as local files or URLs
+- The S&P methodology document (`sp_float.pdf`) is stored in `doc_assets/` and summarized in text files for recycled use
+- Proxy documents can be provided as local files or URLs and are cached in `doc_assets/`
 - Results are saved in JSON format for further processing
 - The analysis follows S&P's float share adjustment methodology including the 5% rule for Directors and Officers
+- The project supports both individual company analysis and batch processing of S&P 1500 constituents
+- All core functionality is organized in the `src/` directory with proper layer separation

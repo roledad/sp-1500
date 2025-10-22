@@ -185,14 +185,6 @@ edgar/
 
 For detailed project structure, see [PROJECT_STRUCTURE.md](./docs/PROJECT_STRUCTURE.md)
 
-## Data Files
-
-The project includes several key data files:
-
-- `sp1500_constituents.csv`: S&P 1500 companies list with ticker symbols and company information
-- `sp1500_dei.csv`: DEI (Document and Entity Information) filing data for S&P 1500 companies
-- `filing_analysis.ipynb`: Jupyter notebook for interactive analysis and visualization
-
 ## Requirements
 
 - Python 3.7+
